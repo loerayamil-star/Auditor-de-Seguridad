@@ -53,9 +53,33 @@ class Auditor:
                 "secretos": None,
                 "return_code": 1
             }
-        
+
+    def analizar_con_flake8(self, ruta_archivo):
+        error_flake = r"([^:]+):(\d+):(\d+): ([A-Z]\d+) (.*)"
+        try:
+            captura = subprocess.run(["flake8", ruta_archivo], capture_output=True, text=True, check=False)
+            hallazgos = re.findall(error_flake, captura.stdout)
+            return {
+                    "repositorio": self.repo,
+                    "fecha": self.fecha.isoformat(),
+                    "flake8": hallazgos,
+                    "errores": len(hallazgos),
+                    "return_code": captura.returncode
+                }
+        except FileNotFoundError as f:
+            print(f"Error al ejecutar Flake8: {f}")
+            return {
+                "repositorio": self.repo,
+                "fecha": self.fecha.isoformat(),
+                "error": f"Error al ejecutar Flake8: {f}",
+                "errores": None,
+                "return_code": 1
+            }
+
 if __name__ == "__main__":
     auditor = Auditor("mi-repo-de-prueba")
+    flake8 = auditor.analizar_con_flake8("archivo_prueba.py")
+    print(json.dumps(flake8, indent=2))
     secrets = auditor.buscar_secretos("archivo_prueba.py")
     resultado = auditor.analizar_con_bandit("archivo_prueba.py")
     print(json.dumps(resultado, indent=2))

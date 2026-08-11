@@ -2,6 +2,7 @@ import datetime
 import json
 import re
 import subprocess
+import textwrap
 
 
 class Auditor:
@@ -76,10 +77,19 @@ class Auditor:
                 "return_code": 1
             }
 
+    def generar_reporte(self, ruta_archivo):
+        self.buscar_secretos(ruta_archivo)
+        self.bandit = self.analizar_con_bandit(ruta_archivo)
+        self.flake8 = self.analizar_con_flake8(ruta_archivo)
+        return textwrap.dedent(f"""\
+            # Reporte de Auditoría — [{self.repo}]
+            Fecha: {self.fecha.isoformat()}
+            ## Secretos: {len(self.secretos)}
+            ## Bandit: {self.bandit.get('vulnerabilidades', 0) or 0}
+            ## Flake8: {self.flake8.get('errores', 0) or 0}
+            ## Dependencias: {len(self.dependencias)}""")
+
 if __name__ == "__main__":
     auditor = Auditor("mi-repo-de-prueba")
-    flake8 = auditor.analizar_con_flake8("archivo_prueba.py")
-    print(json.dumps(flake8, indent=2))
-    secrets = auditor.buscar_secretos("archivo_prueba.py")
-    resultado = auditor.analizar_con_bandit("archivo_prueba.py")
-    print(json.dumps(resultado, indent=2))
+    reporte = auditor.generar_reporte("archivo_prueba.py")
+    print(reporte)

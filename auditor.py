@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 import re
 import subprocess
 import textwrap
@@ -13,19 +14,34 @@ class Auditor:
         self.bandit = {}
         self.flake8 = {}
         self.dependencias = []
+        self.error_secretos = None
 
     def buscar_secretos(self, ruta_archivo):
-        with open(ruta_archivo, "r") as f:
-            contenido = f.read()
-            secretos_encontrados = re.findall(
+        self.secretos = []
+        try:
+            with open(ruta_archivo, "r") as f:
+                contenido = f.read()
+                secretos_encontrados = re.findall(
                 r'(password|api_key|secret|token)\s*=\s*"([^"]+)"',
                 contenido,
-            )
-            self.secretos.extend(secretos_encontrados)
+                )
+                self.secretos.extend(secretos_encontrados)
+        except FileNotFoundError:
+            self.error_secretos = f"Error: el archivo {ruta_archivo} no existe."
+            return
+        except PermissionError:
+            self.error_secretos = f"Error: no se tiene permiso para leer el archivo {ruta_archivo}."
+            return
+        except UnicodeDecodeError:
+            self.error_secretos = f"Error al leer el archivo {ruta_archivo}: no se puede decodificar como UTF-8."
+            return
+
 
     def analizar_con_bandit(self, ruta_archivo):
         reporte_general = {}
         try:
+            if not os.path.exists(ruta_archivo):
+                raise FileNotFoundError(f"El archivo {ruta_archivo} no existe.")
             captura = subprocess.run(
                 ["bandit", "-r", ruta_archivo, "-f", "json"],
                 capture_output=True,
@@ -44,7 +60,6 @@ class Auditor:
             }
             return reporte_general
         except FileNotFoundError as f:
-            print(f"Error al ejecutar Bandit: {f}")
             return {
                 "repositorio": self.repo,
                 "fecha": self.fecha.isoformat(),
@@ -54,7 +69,6 @@ class Auditor:
                 "return_code": 1
             }
         except json.JSONDecodeError as j:
-            print(f"Error al decodificar el JSON de Bandit: {j}")
             return {
                 "repositorio": self.repo,
                 "fecha": self.fecha.isoformat(),
@@ -64,7 +78,6 @@ class Auditor:
                 "return_code": 1
             }
         except subprocess.TimeoutExpired as t:
-            print(f"Error: Bandit tardó demasiado en ejecutarse: {t}")
             return {
                 "repositorio": self.repo,
                 "fecha": self.fecha.isoformat(),
@@ -77,6 +90,8 @@ class Auditor:
     def analizar_con_flake8(self, ruta_archivo):
         error_flake = r"([^:]+):(\d+):(\d+): ([A-Z]\d+) (.*)"
         try:
+            if not os.path.exists(ruta_archivo):
+                raise FileNotFoundError(f"El archivo {ruta_archivo} no existe.")
             captura = subprocess.run(
                 ["flake8", ruta_archivo],
                 capture_output=True,
@@ -93,7 +108,6 @@ class Auditor:
                     "return_code": captura.returncode
                 }
         except FileNotFoundError as f:
-            print(f"Error al ejecutar Flake8: {f}")
             return {
                 "repositorio": self.repo,
                 "fecha": self.fecha.isoformat(),
@@ -102,7 +116,6 @@ class Auditor:
                 "return_code": 1
             }
         except subprocess.TimeoutExpired as t:
-            print(f"Error: Flake8 tardó demasiado en ejecutarse: {t}")
             return {
                 "repositorio": self.repo,
                 "fecha": self.fecha.isoformat(),
@@ -124,10 +137,15 @@ class Auditor:
             flake8_resumen = "ERROR - [" + self.flake8.get("error") + "]"
         else:
             flake8_resumen = self.flake8.get("errores", 0) or 0
+        if self.error_secretos is not None:
+            secretos_resumen = "ERROR - [" + self.error_secretos + "]"
+        else:
+            secretos_resumen = len(self.secretos)
+
         return textwrap.dedent(f"""\
             # Reporte de Auditoría — [{self.repo}]
             Fecha: {self.fecha.isoformat()}
-            ## Secretos: {len(self.secretos)}
+            ## Secretos: {secretos_resumen}
             ## Bandit: {bandit_resumen}
             ## Flake8: {flake8_resumen}
             ## Dependencias: {len(self.dependencias)}""")
@@ -135,5 +153,4 @@ class Auditor:
 
 if __name__ == "__main__":
     auditor = Auditor("mi-repo-de-prueba")
-    reporte = auditor.generar_reporte("archivo_prueba.py")
-    print(reporte)
+    print(auditor.generar_reporte("archivo_prueba.py"))

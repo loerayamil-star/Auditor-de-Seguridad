@@ -18,30 +18,40 @@ class Auditor:
 
     def buscar_secretos(self, ruta_archivo):
         self.secretos = []
+        self.error_secretos = None
         try:
             with open(ruta_archivo, "r") as f:
                 contenido = f.read()
                 secretos_encontrados = re.findall(
-                r'(password|api_key|secret|token)\s*=\s*"([^"]+)"',
-                contenido,
+                    r'(password|api_key|secret|token)\s*=\s*"([^"]+)"',
+                    contenido,
                 )
                 self.secretos.extend(secretos_encontrados)
         except FileNotFoundError:
-            self.error_secretos = f"Error: el archivo {ruta_archivo} no existe."
+            self.error_secretos = (
+                f"Error: el archivo {ruta_archivo} no existe."
+            )
             return
         except PermissionError:
-            self.error_secretos = f"Error: no se tiene permiso para leer el archivo {ruta_archivo}."
+            self.error_secretos = (
+                f"Error: no se tiene permiso para leer el archivo "
+                f"{ruta_archivo}."
+            )
             return
         except UnicodeDecodeError:
-            self.error_secretos = f"Error al leer el archivo {ruta_archivo}: no se puede decodificar como UTF-8."
+            self.error_secretos = (
+                f"Error al leer el archivo {ruta_archivo}: no se puede "
+                f"decodificar como UTF-8."
+            )
             return
-
 
     def analizar_con_bandit(self, ruta_archivo):
         reporte_general = {}
         try:
             if not os.path.exists(ruta_archivo):
-                raise FileNotFoundError(f"El archivo {ruta_archivo} no existe.")
+                raise FileNotFoundError(
+                    f"El archivo {ruta_archivo} no existe."
+                )
             captura = subprocess.run(
                 ["bandit", "-r", ruta_archivo, "-f", "json"],
                 capture_output=True,
@@ -91,7 +101,9 @@ class Auditor:
         error_flake = r"([^:]+):(\d+):(\d+): ([A-Z]\d+) (.*)"
         try:
             if not os.path.exists(ruta_archivo):
-                raise FileNotFoundError(f"El archivo {ruta_archivo} no existe.")
+                raise FileNotFoundError(
+                    f"El archivo {ruta_archivo} no existe."
+                )
             captura = subprocess.run(
                 ["flake8", ruta_archivo],
                 capture_output=True,

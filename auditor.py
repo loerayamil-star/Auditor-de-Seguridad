@@ -2,8 +2,12 @@ import datetime
 import json
 import os
 import re
+import shutil
 import subprocess
 import textwrap
+from typing import Literal
+
+from pydantic import BaseModel, HttpUrl
 
 
 class Auditor:
@@ -15,18 +19,22 @@ class Auditor:
         self.flake8 = {}
         self.dependencias = []
         self.error_secretos = None
+        self.ruta_bandit = shutil.which("bandit")
+        self.ruta_flake8 = shutil.which("flake8")
 
     def buscar_secretos(self, ruta_archivo):
         self.secretos = []
         self.error_secretos = None
+        patron = r'(password|api_key|secret|token)\s*=\s*"([^"]+)"'
         try:
             with open(ruta_archivo, "r") as f:
-                contenido = f.read()
-                secretos_encontrados = re.findall(
-                    r'(password|api_key|secret|token)\s*=\s*"([^"]+)"',
-                    contenido,
-                )
-                self.secretos.extend(secretos_encontrados)
+                for numero_linea, linea in enumerate(f, start=1):
+                    resultado = re.search(patron, linea)
+                    if resultado:
+                        self.secretos.append(
+                            (numero_linea, resultado.group(1),
+                             resultado.group(2))
+                        )
         except FileNotFoundError:
             self.error_secretos = (
                 f"Error: el archivo {ruta_archivo} no existe."
@@ -48,12 +56,25 @@ class Auditor:
     def analizar_con_bandit(self, ruta_archivo):
         reporte_general = {}
         try:
+            if self.ruta_bandit is None:
+                return {
+                    "repositorio": self.repo,
+                    "fecha": self.fecha.isoformat(),
+                    "error": (
+                        "Bandit no está instalado o no se encontró "
+                        "en el PATH."
+                    ),
+                    "vulnerabilidades": None,
+                    "secretos": None,
+                    "return_code": 1
+                }
+
             if not os.path.exists(ruta_archivo):
                 raise FileNotFoundError(
                     f"El archivo {ruta_archivo} no existe."
                 )
             captura = subprocess.run(
-                ["bandit", "-r", ruta_archivo, "-f", "json"],
+                [self.ruta_bandit, "-r", ruta_archivo, "-f", "json"],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -100,12 +121,25 @@ class Auditor:
     def analizar_con_flake8(self, ruta_archivo):
         error_flake = r"([^:]+):(\d+):(\d+): ([A-Z]\d+) (.*)"
         try:
+            if self.ruta_flake8 is None:
+                return {
+                    "repositorio": self.repo,
+                    "fecha": self.fecha.isoformat(),
+                    "error": (
+                        "Flake8 no está instalado o no se encontró "
+                        "en el PATH."
+                    ),
+                    "flake8": None,
+                    "errores": None,
+                    "return_code": 1
+                }
+
             if not os.path.exists(ruta_archivo):
                 raise FileNotFoundError(
                     f"El archivo {ruta_archivo} no existe."
                 )
             captura = subprocess.run(
-                ["flake8", ruta_archivo],
+                [self.ruta_flake8, ruta_archivo],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -161,6 +195,25 @@ class Auditor:
             ## Bandit: {bandit_resumen}
             ## Flake8: {flake8_resumen}
             ## Dependencias: {len(self.dependencias)}""")
+
+
+class AuditoriaRequest(BaseModel):
+    repo: HttpUrl
+    parametros: list[str] = ["bandit", "flake8", "secretos"]
+
+
+class AuditoriaHallazgo(BaseModel):
+    origen: str
+    severidad: Literal["bajo", "medio", "alto"]
+    mensaje: str
+    linea: int
+
+
+class AuditoriaResponse(BaseModel):
+    repo: HttpUrl
+    fecha: datetime.datetime
+    hallazgos: list[AuditoriaHallazgo]
+    estado: Literal["exitoso", "fallido"]
 
 
 if __name__ == "__main__":

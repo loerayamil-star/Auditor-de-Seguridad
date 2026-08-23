@@ -5,9 +5,6 @@ import re
 import shutil
 import subprocess
 import textwrap
-from typing import Literal
-
-from pydantic import BaseModel, HttpUrl
 
 
 class Auditor:
@@ -22,35 +19,40 @@ class Auditor:
         self.ruta_bandit = shutil.which("bandit")
         self.ruta_flake8 = shutil.which("flake8")
 
-    def buscar_secretos(self, ruta_archivo):
+    def buscar_secretos(self, ruta_repo):
         self.secretos = []
         self.error_secretos = None
         patron = r'(password|api_key|secret|token)\s*=\s*"([^"]+)"'
         try:
-            with open(ruta_archivo, "r") as f:
-                for numero_linea, linea in enumerate(f, start=1):
-                    resultado = re.search(patron, linea)
-                    if resultado:
-                        self.secretos.append(
-                            (numero_linea, resultado.group(1),
-                             resultado.group(2))
+            if not os.path.exists(ruta_repo):
+                raise FileNotFoundError(
+                    f"El repositorio {ruta_repo} no existe."
+                )
+
+            for ruta_actual, carpetas, archivos in os.walk(ruta_repo):
+                for nombre_archivo in archivos:
+                    if nombre_archivo.endswith(".py"):
+                        ruta_completa = os.path.join(
+                            ruta_actual, nombre_archivo
                         )
-        except FileNotFoundError:
-            self.error_secretos = (
-                f"Error: el archivo {ruta_archivo} no existe."
-            )
+                        with open(ruta_completa, "r") as f:
+                            for numero_linea, linea in enumerate(f, start=1):
+                                resultado = re.search(patron, linea)
+                                if resultado:
+                                    self.secretos.append((
+                                        ruta_completa,
+                                        numero_linea,
+                                        resultado.group(1),
+                                        resultado.group(2),
+                                    ))
+        except FileNotFoundError as f:
+            self.error_secretos = f"Error: {f}"
             return
-        except PermissionError:
-            self.error_secretos = (
-                f"Error: no se tiene permiso para leer el archivo "
-                f"{ruta_archivo}."
-            )
+        except PermissionError as p:
+            self.error_secretos = f"Error: no se tiene permiso para leer {p}"
             return
-        except UnicodeDecodeError:
-            self.error_secretos = (
-                f"Error al leer el archivo {ruta_archivo}: no se puede "
-                f"decodificar como UTF-8."
-            )
+        except UnicodeDecodeError as u:
+            self.error_secretos = f"Error al decodificar un archivo: {u}"
             return
 
     def analizar_con_bandit(self, ruta_archivo):
@@ -170,6 +172,32 @@ class Auditor:
                 "return_code": 1
             }
 
+    @staticmethod
+    def validar_tamano(ruta_repo, limite_mb=50):
+        try:
+            if not os.path.exists(ruta_repo):
+                raise FileNotFoundError(
+                    f"El archivo {ruta_repo} no existe."
+                )
+            tamano_total = 0
+
+            for ruta_actual, carpetas, archivos in os.walk(ruta_repo):
+                for nombre_archivo in archivos:
+                    ruta_completa = os.path.join(ruta_actual, nombre_archivo)
+                    tamano_total += os.path.getsize(ruta_completa)
+
+            if tamano_total > limite_mb * 1024 * 1024:
+                return False, (
+                    f"El reositorio {ruta_repo} excede el tamaño "
+                    f"máximo permitido de {limite_mb} MB."
+                )
+            return True, None
+
+        except FileNotFoundError as f:
+            return False, f"Error al validar el tamaño del archivo: {f}"
+        except PermissionError as p:
+            return False, f"Error al validar el tamaño del archivo: {p}"
+
     def generar_reporte(self, ruta_archivo):
         self.buscar_secretos(ruta_archivo)
         self.bandit = self.analizar_con_bandit(ruta_archivo)
@@ -195,25 +223,6 @@ class Auditor:
             ## Bandit: {bandit_resumen}
             ## Flake8: {flake8_resumen}
             ## Dependencias: {len(self.dependencias)}""")
-
-
-class AuditoriaRequest(BaseModel):
-    repo: HttpUrl
-    parametros: list[str] = ["bandit", "flake8", "secretos"]
-
-
-class AuditoriaHallazgo(BaseModel):
-    origen: str
-    severidad: Literal["bajo", "medio", "alto"]
-    mensaje: str
-    linea: int
-
-
-class AuditoriaResponse(BaseModel):
-    repo: HttpUrl
-    fecha: datetime.datetime
-    hallazgos: list[AuditoriaHallazgo]
-    estado: Literal["exitoso", "fallido"]
 
 
 if __name__ == "__main__":

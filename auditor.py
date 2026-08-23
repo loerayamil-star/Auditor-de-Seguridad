@@ -3,6 +3,9 @@ import json
 import os
 import re
 import shutil
+
+# bandit B404: subprocess se usa deliberadamente para invocar bandit/flake8;
+# todas las llamadas van con lista de argumentos (sin shell=True).
 import subprocess
 import textwrap
 
@@ -75,6 +78,9 @@ class Auditor:
                 raise FileNotFoundError(
                     f"El archivo {ruta_archivo} no existe."
                 )
+            # bandit B603: self.ruta_bandit viene de shutil.which() (no de
+            # entrada de usuario), y los argumentos van en lista sin
+            # shell=True, así que no hay riesgo de inyección de comandos.
             captura = subprocess.run(
                 [self.ruta_bandit, "-r", ruta_archivo, "-f", "json"],
                 capture_output=True,
@@ -140,6 +146,9 @@ class Auditor:
                 raise FileNotFoundError(
                     f"El archivo {ruta_archivo} no existe."
                 )
+            # bandit B603: self.ruta_flake8 viene de shutil.which() (no de
+            # entrada de usuario), y los argumentos van en lista sin
+            # shell=True, así que no hay riesgo de inyección de comandos.
             captura = subprocess.run(
                 [self.ruta_flake8, ruta_archivo],
                 capture_output=True,

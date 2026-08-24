@@ -43,8 +43,7 @@ def traducir_a_hallazgos(
             origen="secretos",
             severidad="alto",
             mensaje=(
-                f"Se encontró un posible secreto: "
-                f"{resultado[2]} = {resultado[3]}"
+                f"Se encontró un posible secreto: {resultado[2]} = {resultado[3][0:4]}..."
             ),
             linea=resultado[1],
         ))
@@ -54,42 +53,51 @@ def traducir_a_hallazgos(
 
 @app.post("/auditoria")
 def crear_auditoria(request: AuditoriaRequest):
-    carpeta_destino = tempfile.mkdtemp()
-    # bandit B603: request.repo es un HttpUrl validado por Pydantic (solo
-    # http/https), y subprocess.run recibe la URL como un elemento de lista
-    # completo (no usa shell=True), así que no puede inyectar flags ni
-    # comandos.
-    comando = [
-        "git", "clone", "--depth", "1", str(request.repo), carpeta_destino
-    ]
-    captura_comando = subprocess.run(
-        comando, capture_output=True, text=True, check=False, timeout=60
-    )
-    if captura_comando.returncode != 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Error al clonar el repositorio: {captura_comando.stderr}",
+    with tempfile.TemporaryDirectory() as carpeta_destino:
+        
+    
+        # bandit B603: request.repo es un HttpUrl validado por Pydantic (solo
+        # http/https), y subprocess.run recibe la URL como un elemento de lista
+        # completo (no usa shell=True), así que no puede inyectar flags ni
+        # comandos.
+        comando = [
+            "git", "clone", "--depth", "1", str(request.repo), carpeta_destino
+        ]
+        try:
+            captura_comando = subprocess.run(
+                comando, capture_output=True, text=True, check=False, timeout=60
+            )
+        except subprocess.TimeoutExpired as t:
+            raise HTTPException(
+                status_code=504,
+                detail=f"Error debido a tiempo de espera: {t}",
+            )
+
+        if captura_comando.returncode != 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Error al clonar el repositorio: {captura_comando.stderr}",
+            )
+
+        es_valido, mensaje_error = Auditor.validar_tamano(carpeta_destino)
+        if not es_valido:
+            raise HTTPException(status_code=413, detail=mensaje_error)
+
+        auditor = Auditor(str(request.repo))
+        auditor.generar_reporte(carpeta_destino)
+
+        if (
+            auditor.error_secretos is not None
+            or "error" in auditor.bandit
+            or "error" in auditor.flake8
+        ):
+            estado = "fallido"
+        else:
+            estado = "exitoso"
+
+        hallazgos = traducir_a_hallazgos(
+            auditor.bandit, auditor.flake8, auditor.secretos
         )
-
-    es_valido, mensaje_error = Auditor.validar_tamano(carpeta_destino)
-    if not es_valido:
-        raise HTTPException(status_code=413, detail=mensaje_error)
-
-    auditor = Auditor(str(request.repo))
-    auditor.generar_reporte(carpeta_destino)
-
-    if (
-        auditor.error_secretos is not None
-        or "error" in auditor.bandit
-        or "error" in auditor.flake8
-    ):
-        estado = "fallido"
-    else:
-        estado = "exitoso"
-
-    hallazgos = traducir_a_hallazgos(
-        auditor.bandit, auditor.flake8, auditor.secretos
-    )
 
     return AuditoriaResponse(
         repo=request.repo,

@@ -1,12 +1,12 @@
 import datetime
 from typing import Literal
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 
 
 class AuditoriaRequest(BaseModel):
     repo: HttpUrl
-    parametros: list[str] = ["bandit", "flake8", "secretos"]
+    parametros: list[str] = Field(default_factory=lambda: ["bandit", "flake8", "secretos"])
 
 
 class AuditoriaHallazgo(BaseModel):

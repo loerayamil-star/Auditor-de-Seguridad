@@ -99,6 +99,10 @@ Start the server:
 uvicorn main:app --reload
 ```
 
+Swagger UI (`/docs`) listing the `POST /auditoria` endpoint and the schemas FastAPI generates automatically:
+
+![Swagger UI showing the POST /auditoria endpoint and its schemas](docs/screenshots/swagger-ui-listado.png)
+
 ### `POST /auditoria`
 
 Clones the received `repo` (`git clone --depth 1`), checks that the clone doesn't exceed 50 MB, runs `Auditor` on it, and returns the combined findings from Bandit, flake8, and secret detection.
@@ -112,6 +116,10 @@ curl -X POST http://127.0.0.1:8000/auditoria \
 ```
 
 `repo` must be a valid `http`/`https` URL (Pydantic `HttpUrl`); cloning fails with `400` if `git clone` can't complete, and with `413` if the cloned repo exceeds 50 MB.
+
+The same endpoint expanded in Swagger UI, with an example request body ready to run via the "Execute" button:
+
+![POST /auditoria endpoint expanded in Swagger UI with an example request body](docs/screenshots/swagger-ui-request.png)
 
 **Response** — `200 OK`
 
@@ -150,6 +158,10 @@ curl -X POST http://127.0.0.1:8000/auditoria \
 ```
 
 Each item in `hallazgos` is an `AuditoriaHallazgo`: `origen` (source — `"bandit"`, `"flake8"`, or `"secretos"`), `severidad` (severity — `"bajo"` / `"medio"` / `"alto"`, i.e. low/medium/high), `mensaje` (message), and `linea` (line). Field values stay in Spanish to match the rest of the API's response shape. `estado` is `"fallido"` (failed) if Bandit, flake8, or secret detection ended in error (e.g. tool not found on `PATH`); in that case whatever findings are available are still returned.
+
+The same request run from Swagger UI, showing the generated curl command, the final URL, and the `200 OK` response with the findings:
+
+![200 OK response in Swagger UI with the generated curl command and the returned findings](docs/screenshots/swagger-ui-response.png)
 
 ---
 

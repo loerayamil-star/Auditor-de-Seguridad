@@ -99,6 +99,10 @@ Levantar el servidor:
 uvicorn main:app --reload
 ```
 
+Swagger UI (`/docs`) con el endpoint `POST /auditoria` listado y los schemas generados automáticamente por FastAPI:
+
+![Swagger UI mostrando el endpoint POST /auditoria y sus schemas](docs/screenshots/swagger-ui-listado.png)
+
 ### `POST /auditoria`
 
 Clona el `repo` recibido (`git clone --depth 1`), valida que la copia no supere 50 MB, corre `Auditor` sobre ella y devuelve los hallazgos combinados de Bandit, flake8 y detección de secretos.
@@ -112,6 +116,10 @@ curl -X POST http://127.0.0.1:8000/auditoria \
 ```
 
 `repo` debe ser una URL `http`/`https` válida (Pydantic `HttpUrl`); el clonado falla con `400` si `git clone` no puede completarse, y con `413` si el repo clonado excede 50 MB.
+
+El mismo endpoint expandido en Swagger UI, con el cuerpo de la petición listo para ejecutarse desde el botón "Execute":
+
+![Endpoint POST /auditoria expandido en Swagger UI con el cuerpo de la petición de ejemplo](docs/screenshots/swagger-ui-request.png)
 
 **Response** — `200 OK`
 
@@ -150,6 +158,10 @@ curl -X POST http://127.0.0.1:8000/auditoria \
 ```
 
 Cada elemento de `hallazgos` es un `AuditoriaHallazgo`: `origen` (`"bandit"`, `"flake8"` o `"secretos"`), `severidad` (`"bajo"` / `"medio"` / `"alto"`), `mensaje` y `linea`. `estado` es `"fallido"` si Bandit, flake8 o la búsqueda de secretos terminaron en error (por ejemplo, herramienta no encontrada en el `PATH`); en ese caso los hallazgos disponibles igual se devuelven.
+
+La misma petición ejecutada desde Swagger UI, con el curl generado, la URL final y la respuesta `200 OK` con los hallazgos:
+
+![Respuesta 200 OK en Swagger UI con el curl generado y los hallazgos devueltos](docs/screenshots/swagger-ui-response.png)
 
 ---
 

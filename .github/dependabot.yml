@@ -1,0 +1,12 @@
+# Dependabot: avisa de actualizaciones y vulnerabilidades en las dependencias
+# de Python declaradas en requirements.txt. Solo abre PRs; no fusiona nada.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"

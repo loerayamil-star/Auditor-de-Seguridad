@@ -7,7 +7,7 @@ h11==0.16.0
 idna==3.19
 pillow==12.3.0
 pydantic==2.14.0
-pydantic_core==2.46.4
+pydantic_core==2.50.0
 ruff==0.16.10
 starlette==1.7.0
 typing-inspection==0.4.4

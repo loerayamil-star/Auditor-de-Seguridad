@@ -42,17 +42,18 @@ Practice project on a self-taught DevSecOps track: wiring static analysis tools 
 
 ## Requirements & installation
 
-- Python 3.8 or higher
-- `git`, `bandit`, and `flake8` installed and available on `PATH` (the API clones the repo with `git`, and `Auditor` resolves `bandit`/`flake8` via `shutil.which`)
-- `fastapi`, `uvicorn`, and `pydantic` to run the API
+- Python 3.11 or higher (required by the pinned versions of `flake8`, `pyflakes`, and `stevedore`)
+- `git` installed and available on `PATH` (the API clones the repo with `git`)
+- The Python dependencies, including `bandit` and `flake8`, are installed from `requirements.txt`. `Auditor` resolves them via `shutil.which`, so they must end up on `PATH`.
 
 ```bash
 git clone https://github.com/loerayamil-star/Auditor-de-Seguridad.git
 cd Auditor-de-Seguridad
-pip install bandit flake8 fastapi uvicorn
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-There's no `requirements.txt` yet. `git`, `bandit`, and `flake8` are invoked as command-line binaries (not imported as libraries); `fastapi`, `pydantic`, and `uvicorn` are regular Python dependencies.
+`requirements.txt` pins exact versions, including transitive dependencies. `bandit` and `flake8` are invoked as command-line binaries (not imported as libraries), so the virtual environment must be active when running `uvicorn` or `python auditor.py`; `fastapi`, `pydantic`, and `uvicorn` are regular Python dependencies.
 
 ---
 
@@ -176,4 +177,4 @@ The same request run from Swagger UI, showing the generated curl command, the fi
 
 ## Project status
 
-The end-to-end flow is functional: `POST /auditoria` clones the repo, runs Bandit/flake8/secret detection, and responds with structured findings (`AuditoriaResponse`). The known limitations above are still open; there's no vulnerable-dependency analysis or `requirements.txt` yet.
+The end-to-end flow is functional: `POST /auditoria` clones the repo, runs Bandit/flake8/secret detection, and responds with structured findings (`AuditoriaResponse`). The known limitations above are still open; there's no vulnerable-dependency analysis yet.

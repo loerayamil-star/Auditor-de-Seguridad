@@ -42,17 +42,18 @@ Proyecto de práctica en la ruta DevSecOps: integrar herramientas de análisis e
 
 ## Requisitos e instalación
 
-- Python 3.8 o superior
-- `git`, `bandit` y `flake8` instalados y disponibles en el `PATH` (la API clona el repo con `git` y `Auditor` resuelve `bandit`/`flake8` vía `shutil.which`)
-- `fastapi`, `uvicorn` y `pydantic` para levantar la API
+- Python 3.11 o superior (lo exigen las versiones fijadas de `flake8`, `pyflakes` y `stevedore`)
+- `git` instalado y disponible en el `PATH` (la API clona el repo con `git`)
+- Las dependencias de Python, incluidos `bandit` y `flake8`, se instalan con `requirements.txt`. `Auditor` los resuelve vía `shutil.which`, así que deben quedar en el `PATH`.
 
 ```bash
 git clone https://github.com/loerayamil-star/Auditor-de-Seguridad.git
 cd Auditor-de-Seguridad
-pip install bandit flake8 fastapi uvicorn
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-No hay un `requirements.txt` todavía. `git`, `bandit` y `flake8` se invocan como binarios de línea de comandos (no como librerías importadas); `fastapi`, `pydantic` y `uvicorn` sí son dependencias de Python normales.
+`requirements.txt` fija las versiones exactas, incluidas las dependencias transitivas. `bandit` y `flake8` se invocan como binarios de línea de comandos (no como librerías importadas), por eso el entorno virtual debe estar activado al correr `uvicorn` o `python auditor.py`; `fastapi`, `pydantic` y `uvicorn` sí son dependencias de Python normales.
 
 ---
 
@@ -176,4 +177,4 @@ La misma petición ejecutada desde Swagger UI, con el curl generado, la URL fina
 
 ## Estado del proyecto
 
-El flujo de punta a punta está funcional: `POST /auditoria` clona el repo, corre Bandit/flake8/detección de secretos y responde con hallazgos estructurados (`AuditoriaResponse`). Las limitaciones conocidas de arriba siguen abiertas; no hay análisis de dependencias vulnerables ni `requirements.txt` todavía.
+El flujo de punta a punta está funcional: `POST /auditoria` clona el repo, corre Bandit/flake8/detección de secretos y responde con hallazgos estructurados (`AuditoriaResponse`). Las limitaciones conocidas de arriba siguen abiertas; no hay análisis de dependencias vulnerables todavía.

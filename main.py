@@ -1,5 +1,6 @@
 # bandit B404: subprocess se usa deliberadamente para invocar git/bandit/
 # flake8; todas las llamadas van con lista de argumentos (sin shell=True).
+import logging
 import subprocess
 import tempfile
 
@@ -7,6 +8,8 @@ from fastapi import FastAPI, HTTPException
 
 from auditor import Auditor
 from models import AuditoriaHallazgo, AuditoriaRequest, AuditoriaResponse
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -68,15 +71,17 @@ def crear_auditoria(request: AuditoriaRequest):
                 comando, capture_output=True, text=True, check=False, timeout=60
             )
         except subprocess.TimeoutExpired as t:
+            logger.error("Timeout al clonar: %s", t)
             raise HTTPException(
-                status_code=504,
-                detail=f"Error debido a tiempo de espera: {t}",
+            status_code=504,
+            detail="Error debido a tiempo de espera",
             )
 
         if captura_comando.returncode != 0:
+            logger.warning("Fallo al clonar: %s", captura_comando.stderr)
             raise HTTPException(
-                status_code=400,
-                detail=f"Error al clonar el repositorio: {captura_comando.stderr}",
+            status_code=400,
+            detail="Error al clonar el repositorio",
             )
 
         es_valido, mensaje_error = Auditor.validar_tamano(carpeta_destino)

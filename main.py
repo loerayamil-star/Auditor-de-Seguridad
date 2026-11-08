@@ -16,11 +16,8 @@ app = FastAPI()
 
 
 def sanear_url(url: str) -> str:
-    # Se parte con urlsplit (no con regex ni replace) y se reconstruye solo lo
-    # que identifica el repo: esquema, host, puerto y ruta. Usuario:contraseña,
-    # query y fragmento pueden llevar tokens, así que nunca pasan.
-    # Si la URL no se puede interpretar, se devuelve un marcador fijo y jamás
-    # la cadena original: el fallback no debe reabrir la fuga.
+    # query y fragmento tambien pueden llevar tokens
+    # si la url no se puede leer se devuelve un marcador y nunca la original
     try:
         partes = urlsplit(url)
         host = partes.hostname
@@ -37,9 +34,7 @@ def sanear_url(url: str) -> str:
 
 
 def ocultar_secretos(texto: str, url: str) -> str:
-    # Reemplaza usuario y contraseña de la URL (en crudo y decodificados) por
-    # <secret>. Solo atrapa la cadena exacta: si git escribiera el token con
-    # otra forma, se escaparía; por eso se registra lo mínimo.
+    # solo atrapa el texto exacto del token asi que se registra lo minimo
     try:
         partes = urlsplit(url)
         credenciales = (partes.username, partes.password)
@@ -50,7 +45,7 @@ def ocultar_secretos(texto: str, url: str) -> str:
         if credencial:
             fragmentos.add(credencial)
             fragmentos.add(unquote(credencial))
-    # Los más largos primero, para que un fragmento corto no deje restos de otro.
+    # primero los mas largos para no dejar restos
     for fragmento in sorted(fragmentos, key=len, reverse=True):
         texto = texto.replace(fragmento, "<secret>")
     return texto

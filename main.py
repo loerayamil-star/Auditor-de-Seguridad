@@ -3,6 +3,7 @@
 import logging
 import subprocess
 import tempfile
+from urllib.parse import unquote, urlsplit
 
 from fastapi import FastAPI, HTTPException
 
@@ -12,6 +13,47 @@ from models import AuditoriaHallazgo, AuditoriaRequest, AuditoriaResponse
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+
+def sanear_url(url: str) -> str:
+    # Se parte con urlsplit (no con regex ni replace) y se reconstruye solo lo
+    # que identifica el repo: esquema, host, puerto y ruta. Usuario:contraseña,
+    # query y fragmento pueden llevar tokens, así que nunca pasan.
+    # Si la URL no se puede interpretar, se devuelve un marcador fijo y jamás
+    # la cadena original: el fallback no debe reabrir la fuga.
+    try:
+        partes = urlsplit(url)
+        host = partes.hostname
+        puerto = partes.port
+    except ValueError:
+        return "<url-invalida>"
+    if not partes.scheme or not host:
+        return "<url-invalida>"
+    if ":" in host:
+        host = f"[{host}]"
+    if puerto is not None:
+        host = f"{host}:{puerto}"
+    return f"{partes.scheme}://{host}{partes.path}"
+
+
+def ocultar_secretos(texto: str, url: str) -> str:
+    # Reemplaza usuario y contraseña de la URL (en crudo y decodificados) por
+    # <secret>. Solo atrapa la cadena exacta: si git escribiera el token con
+    # otra forma, se escaparía; por eso se registra lo mínimo.
+    try:
+        partes = urlsplit(url)
+        credenciales = (partes.username, partes.password)
+    except ValueError:
+        return "<stderr-omitido>"
+    fragmentos = set()
+    for credencial in credenciales:
+        if credencial:
+            fragmentos.add(credencial)
+            fragmentos.add(unquote(credencial))
+    # Los más largos primero, para que un fragmento corto no deje restos de otro.
+    for fragmento in sorted(fragmentos, key=len, reverse=True):
+        texto = texto.replace(fragmento, "<secret>")
+    return texto
 
 
 def traducir_a_hallazgos(
@@ -71,14 +113,20 @@ def crear_auditoria(request: AuditoriaRequest):
                 comando, capture_output=True, text=True, check=False, timeout=60
             )
         except subprocess.TimeoutExpired as t:
-            logger.error("Timeout al clonar: %s", t)
+            logger.error(
+                "Timeout al clonar %s tras %s s",
+                sanear_url(str(request.repo)), t.timeout
+            )
             raise HTTPException(
             status_code=504,
             detail="Error debido a tiempo de espera",
             )
 
         if captura_comando.returncode != 0:
-            logger.warning("Fallo al clonar: %s", captura_comando.stderr)
+            logger.warning(
+                "Fallo al clonar: %s",
+                ocultar_secretos(captura_comando.stderr, str(request.repo))
+            )
             raise HTTPException(
             status_code=400,
             detail="Error al clonar el repositorio",

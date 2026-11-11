@@ -3,7 +3,7 @@ annotated-types==0.8.0
 anyio==4.14.2
 bandit==1.9.4
 click==8.5.0
-fastapi==0.143.0
+fastapi==0.162.0
 flake8==7.5.0
 h11==0.16.0
 idna==3.19

@@ -8,8 +8,8 @@ Herramienta en Python que audita un repositorio: busca secretos hardcodeados (re
 
 ## Estado real (verificado, no asumir más)
 
-- No hay tests ni CI todavía (no existe `tests/` ni `.github/`).
-- `requirements.txt` existe pero no incluye `bandit` ni `flake8`, que el código invoca como binarios vía `shutil.which`. El README todavía dice "No hay un requirements.txt". Son pendientes conocidos, no los "arregles" por tu cuenta: avisa y propón.
+- No hay tests ni workflow de CI todavía: no existe `tests/`, y `.github/` solo tiene `dependabot.yml`.
+- `requirements.txt` fija versiones exactas, incluidos `bandit` y `flake8`, que el código invoca como binarios vía `shutil.which`; por eso el entorno virtual debe estar activado. El README ya lo explica.
 - El detector de secretos es heurístico y educativo: solo `.py`, solo comillas dobles. No lo presentes como secret scanning completo.
 - `self.dependencias` no está implementado (el reporte siempre dice 0).
 - El campo `parametros` de `AuditoriaRequest` no se usa en `main.py`.
@@ -17,7 +17,7 @@ Herramienta en Python que audita un repositorio: busca secretos hardcodeados (re
 ## Comandos
 
 ```bash
-pip install -r requirements.txt   # más bandit y flake8 en el PATH
+pip install -r requirements.txt   # incluye bandit y flake8 (con el venv activado)
 uvicorn main:app --reload         # levantar la API
 python auditor.py                 # ejemplo local sobre archivo_prueba.py
 ruff check .                      # lint (ruff está en requirements.txt)
